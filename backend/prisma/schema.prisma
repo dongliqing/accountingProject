@@ -1,0 +1,149 @@
+// 多账单记账助手 — 数据库模型
+// 初始化：npx prisma migrate dev --name init
+// 种子数据：npx prisma db seed
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────
+// 枚举
+// ──────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum BillType {
+  INCOME // 收入
+  EXPENSE // 支出
+}
+
+// ──────────────────────────────────────────────
+// 用户
+// ──────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  avatar       String?
+  phone        String?
+  role         UserRole @default(USER)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  ledgers       Ledger[]
+  bills         Bill[]
+  uploadedFiles UploadedFile[]
+
+  @@map("users")
+}
+
+// ──────────────────────────────────────────────
+// 账本 — 多账本数据隔离的核心
+// ──────────────────────────────────────────────
+
+model Ledger {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  color       String   @default("#FEDA44")
+  icon        String?
+  isDefault   Boolean  @default(false) @map("is_default")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories Category[]
+  bills      Bill[]
+
+  // 同一用户下账本名唯一
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("ledgers")
+}
+
+// ──────────────────────────────────────────────
+// 分类 — 归属账本，账本之间互不污染
+// ──────────────────────────────────────────────
+
+model Category {
+  id        String   @id @default(uuid())
+  ledgerId  String   @map("ledger_id")
+  name      String
+  type      BillType
+  icon      String?
+  color     String?
+  sortOrder Int      @default(0) @map("sort_order")
+  isSystem  Boolean  @default(false) @map("is_system")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ledger Ledger @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  bills  Bill[]
+
+  // 同一账本、同一类型下分类名唯一
+  @@unique([ledgerId, type, name])
+  @@index([ledgerId])
+  @@map("categories")
+}
+
+// ──────────────────────────────────────────────
+// 账单 / 明细
+// ──────────────────────────────────────────────
+
+model Bill {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  ledgerId   String    @map("ledger_id")
+  categoryId String?   @map("category_id")
+  type       BillType
+  amount     Decimal   @db.Decimal(12, 2)
+  note       String?
+  occurredAt DateTime  @default(now()) @map("occurred_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  // 软删除 — 对应设计稿的「回收站」
+  deletedAt  DateTime? @map("deleted_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledger   Ledger    @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([ledgerId, occurredAt])
+  @@index([categoryId])
+  @@map("bills")
+}
+
+// ──────────────────────────────────────────────
+// 上传文件
+// ──────────────────────────────────────────────
+
+model UploadedFile {
+  id           String   @id @default(uuid())
+  userId       String?  @map("user_id")
+  originalName String   @map("original_name")
+  fileName     String   @unique @map("file_name")
+  filePath     String   @map("file_path")
+  fileSize     Int      @map("file_size")
+  mimeType     String   @map("mime_type")
+  fileType     String   @map("file_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("uploaded_files")
+}

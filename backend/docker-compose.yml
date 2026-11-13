@@ -1,0 +1,62 @@
+name: accounting
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg14
+    container_name: accounting-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: ${POSTGRES_DB:-accounting}
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    ports:
+      - "${DB_PORT:-5434}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-accounting}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-dump:
+    image: pgvector/pgvector:pg14
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: 123456
+    volumes:
+      - ./docker:/backup
+    command:
+      [
+        "sh",
+        "-lc",
+        "pg_dump -h postgres -p 5432 -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-accounting} -Fc -f /backup/backup.dump",
+      ]
+
+  db-restore:
+    image: pgvector/pgvector:pg14
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: 123456
+    volumes:
+      - ./docker:/backup:ro
+    command:
+      [
+        "sh",
+        "-lc",
+        "if [ -f /backup/backup.dump ]; then pg_restore -h postgres -p 5432 -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-accounting} --clean --if-exists /backup/backup.dump; elif [ -f /backup/backup.sql ]; then psql -h postgres -p 5432 -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-accounting} -f /backup/backup.sql; else echo 'No /backup/backup.dump or /backup/backup.sql found'; exit 1; fi",
+      ]
+
+volumes:
+  pgdata:
+    # 显式命名，避免和旧项目（同名 backend 目录）共用数据卷
+    name: accounting_pgdata

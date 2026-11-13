@@ -1,0 +1,52 @@
+{
+  "name": "accounting-assistant-backend",
+  "version": "1.0.0",
+  "description": "多账单记账助手 - 多账本记账 / 账单明细管理",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "db:init": "docker-compose up -d postgres && sleep 5 && npx prisma migrate dev --name init",
+    "db:reset": "npx prisma migrate reset",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@koa/cors": "^5.0.0",
+    "@koa/multer": "^4.0.0",
+    "@koa/router": "^12.0.1",
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "jsonwebtoken": "^9.0.2",
+    "koa": "^2.15.3",
+    "koa-bodyparser": "^4.4.1",
+    "koa-mount": "^4.2.0",
+    "koa-static": "^5.0.0",
+    "multer": "^2.2.0",
+    "uuid": "^10.0.0",
+    "winston": "^3.19.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/koa": "^2.15.0",
+    "@types/koa-bodyparser": "^4.3.12",
+    "@types/koa__cors": "^5.0.0",
+    "@types/koa__router": "^12.0.4",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.9.0",
+    "@types/uuid": "^10.0.0",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
